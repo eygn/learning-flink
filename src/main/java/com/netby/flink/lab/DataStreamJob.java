@@ -18,6 +18,7 @@
 
 package com.netby.flink.lab;
 
+import com.taobao.api.internal.toplink.endpoint.SendCallback;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
 /**
@@ -58,6 +59,8 @@ public class DataStreamJob {
 		 * https://nightlies.apache.org/flink/flink-docs-stable/
 		 *
 		 */
+
+		env.fromSequence(1, 10).print();
 
 		// Execute program, beginning computation.
 		env.execute("Flink Java API Skeleton");
