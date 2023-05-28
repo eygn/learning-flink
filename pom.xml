@@ -27,8 +27,8 @@ under the License.
         <relativePath/>
     </parent>
 
-    <groupId>com.netby.lerning</groupId>
-    <artifactId>learning-flink</artifactId>
+    <groupId>com.netby</groupId>
+    <artifactId>netby-flink</artifactId>
     <version>0.1</version>
     <packaging>jar</packaging>
 
