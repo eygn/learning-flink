@@ -1,4 +1,4 @@
-package com.netby.flink.quickstart;
+package com.netby.flink.lab;
 
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.java.tuple.Tuple2;

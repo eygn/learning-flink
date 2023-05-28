@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.netby.flink.quickstart;
+package com.netby.flink.lab;
 
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
