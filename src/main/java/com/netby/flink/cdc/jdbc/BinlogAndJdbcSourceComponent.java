@@ -39,6 +39,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static com.netby.flink.cdc.jdbc.Constant.*;
+
 /**
  * 历史数据扫描+binlog实时监听组件
  * 先异步启动历史数据扫描任务(根据sql配置扫描)，同时启动binlog监听最新事件，当数据重叠时会自动停止历史数据扫描任务
@@ -120,7 +122,7 @@ public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> 
         String username = properties.getProperty("username");
         String password = properties.getProperty("password");
 
-        waitTime = Integer.parseInt(StringUtils.isBlank(properties.getProperty("waitTime")) ? "0" : properties.getProperty("waitTime"));
+        waitTime = Integer.parseInt(StringUtils.isBlank(properties.getProperty("waitTime")) ? DEFAULT_WAIT_TIME : properties.getProperty("waitTime"));
         jdbcUrl = StringUtils.isNotBlank(properties.getProperty("jdbcUrl")) ? properties.getProperty("jdbcUrl") : properties.getProperty("address");
         selectSentence = properties.getProperty("select");
         info(nodeName + "the query sql string is:" + selectSentence);
@@ -138,7 +140,7 @@ public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> 
             updateTimeField = properties.getProperty("updateTimeColumn");
             initFieldSub(properties.getProperty("outputColumns").split(","));
         }
-        pageSize = Integer.parseInt(StringUtils.isBlank(properties.getProperty("limit")) ? "100" : properties.getProperty("limit"));
+        pageSize = Integer.parseInt(StringUtils.isBlank(properties.getProperty("limit")) ? DEFAULT_PAGE_SIZE : properties.getProperty("limit"));
         outputColumns = Arrays.asList(properties.getProperty("outputColumns").split(","));
         outputColumnSize = outputColumns.size();
         canceled = false;
@@ -351,7 +353,7 @@ public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> 
             } else {
                 querySql3 = "select * from (" + selectSql + ") n where 1=1 " + updateFieldStr3;
             }
-            if (this.jdbcUrl.contains("mysql")) {
+            if (this.jdbcUrl.contains(MYSQL)) {
 
                 if (!"".equals(updateTime)) {
                     queryStr = "select * from ((" + querySql1 + ") union all (" + querySql2 + ") union all (" + querySql3 + "))s order by " + this.updateTimeField + "," + this.primaryKeyFields + " limit " + this.pageSize;
@@ -369,7 +371,7 @@ public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> 
                 throw new RuntimeException("构建SQL异常！");
             }
 
-        } else if (this.jdbcUrl.contains("mysql")) {
+        } else if (this.jdbcUrl.contains(MYSQL)) {
             queryStr = "select * from (" + selectSql + ")s order by " + this.updateTimeField + "," + this.primaryKeyFields + " limit " + this.pageSize;
         } else {
             queryStr = "select * from (select * from (" + selectSql + ") m order by " + this.updateTimeField + "," + this.primaryKeyFields + ") s " + "where rownum<" + (this.pageSize + 1);
@@ -554,7 +556,7 @@ public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> 
     }
 
     public String getType() {
-        return "MYSQL";
+        return MYSQL;
     }
 
 

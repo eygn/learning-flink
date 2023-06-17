@@ -4,6 +4,7 @@ import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.StrUtil;
 import com.github.shyiko.mysql.binlog.event.EventType;
 import com.google.common.collect.Lists;
+import com.netby.flink.cdc.jdbc.Constant;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -36,7 +37,7 @@ public class BinLogUtils {
      */
     public static Map<String, Colum> getColMap(MysqlConf mysqlConf, String db, String table) throws ClassNotFoundException {
         try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
+            Class.forName(Constant.JDBC_DRIVER);
             // 保存当前注册的表的colum信息
             Connection connection = DriverManager.getConnection("jdbc:mysql://" + mysqlConf.getHost() + ":" + mysqlConf.getPort() + "?serverTimezone=GMT%2B8&useSSL=false", mysqlConf.getUsername(), mysqlConf.getPasswd());
             // 执行sql

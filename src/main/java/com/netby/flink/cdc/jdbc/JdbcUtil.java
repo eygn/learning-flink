@@ -65,7 +65,7 @@ public class JdbcUtil {
         String tableName = "";
         String[] strs = sqlStr.split(" ");
         for (String str : strs) {
-            if (str.matches("[\\s\\S]*\\$\\{(.*)\\}[\\s\\S]*")) {
+            if (str.matches(Constant.TABLE_REGEX_PATTERN)) {
                 tableName = str.trim();
                 break;
             }
