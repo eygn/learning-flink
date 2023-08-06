@@ -1,3 +1,4 @@
+/*
 package com.netby.flink.cdc.jdbc;
 
 import cn.hutool.core.date.DatePattern;
@@ -8,8 +9,8 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.netby.flink.cdc.binlog.BinLogItem;
-import com.netby.flink.cdc.binlog.BinlogEventConfig;
 import com.netby.flink.cdc.binlog.MysqlBinlogListener;
+import com.netby.flink.cdc.binlog.MysqlConfig;
 import com.netby.flink.cdc.third.BaseTuple;
 import com.netby.flink.cdc.third.DagNode;
 import com.zaxxer.hikari.HikariDataSource;
@@ -41,13 +42,15 @@ import java.util.concurrent.TimeUnit;
 
 import static com.netby.flink.cdc.jdbc.Constant.*;
 
+*/
 /**
  * 历史数据扫描+binlog实时监听组件
  * 先异步启动历史数据扫描任务(根据sql配置扫描)，同时启动binlog监听最新事件，当数据重叠时会自动停止历史数据扫描任务
  *
  * @author baiyg
  * @date 2023/12/2 11:04
- */
+ *//*
+
 @Data
 @Slf4j
 public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> implements CheckpointedFunction {
@@ -70,15 +73,19 @@ public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> 
     private ConcurrentHashMap<String, String> currentTable = new ConcurrentHashMap<>();
     private transient HikariDataSource dataSource;
 
-    /**
+    */
+/**
      * 非增量采集 暂用不上，使用方式为limit语句
-     */
+     *//*
+
     private transient ListState<Map<String, Long>> offsetValueState;
 
     private transient Map<String, Long> tableOffset;
-    /**
+    */
+/**
      * 增量，使用方式为时间+主键条件，会持久化时间和主键值，暂停后会再次恢复
-     */
+     *//*
+
     private transient ListState<Map<String, Map<String, String>>> tableInfoState;
     private transient Map<String, Map<String, String>> tableInfoMaps;
     private String nodeName;
@@ -89,17 +96,23 @@ public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> 
     private transient Long binLogStartTime;
     private transient Long binLogFirstEventProcessTime;
     private transient Map<String, Long> tableBinlogPosition;
-    /**
+    */
+/**
      * 组件结束
-     */
+     *//*
+
     private volatile boolean canceled;
-    /**
+    */
+/**
      * 最新扫表时间
-     */
+     *//*
+
     private transient Long lastScanProcessTime;
-    /**
+    */
+/**
      * 扫描任务
-     */
+     *//*
+
     private transient boolean scanTable = true;
 
     public BinlogAndJdbcSourceComponent(DagNode node) {
@@ -110,12 +123,14 @@ public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> 
         this.tables = new HashSet<>();
     }
 
-    /**
+    */
+/**
      * 组件初始化
      *
      * @param parameters The configuration containing the parameters attached to the contract.
      * @throws Exception
-     */
+     *//*
+
     public void open(Configuration parameters) throws Exception {
         info("open params:{},properties:{}", JSON.toJSONString(parameters), JSON.toJSONString(properties));
         String driverName = Constant.JDBC_DRIVER;
@@ -161,7 +176,8 @@ public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> 
         String port = ip.split(":")[1];
         scanTable = true;
         // 这种场景适合用Executors.newCachedThreadPool来创建线程池
-        /*service = new ThreadPoolExecutor(4,
+        */
+/*service = new ThreadPoolExecutor(4,
                 Runtime.getRuntime().availableProcessors() * 2, 60L, TimeUnit.MILLISECONDS,
                 new LinkedBlockingDeque<>(8192), new NamedThreadFactory("scan-history-task-", false), new ThreadPoolExecutor.AbortPolicy() {
             @Override
@@ -169,26 +185,25 @@ public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> 
                 DingTalkUtil.sendErrorMsg("处理历史数据线程池队列已满,任务提交被拒绝,线程数:" + e.getActiveCount() + ",queenSize:" + e.getQueue().size() + ",任务表:" + tables);
                 super.rejectedExecution(r, e);
             }
-        });*/
+        });*//*
+
         service = Executors.newCachedThreadPool(new NamedThreadFactory("scan-history-task-", false));
 
-        BinlogEventConfig binlogEventConfig = BinlogEventConfig.builder()
-                .host(hostname)
-                .port(Integer.valueOf(port))
-                .username(username)
-                .passwd(password)
-                .db(schema)
-                .table(StringUtils.join(tables.toArray(), ","))
+        MysqlConfig mysqlConfig = MysqlConfig.builder()
+                .host(hostname).port(Integer.valueOf(port)).username(username).passwd(password)
+                .db(schema).table(Arrays.stream(tables.toArray()).findFirst().get().toString())
                 .build();
-        mysqlBinlogListener = new MysqlBinlogListener(binlogEventConfig);
+        mysqlBinlogListener = new MysqlBinlogListener(mysqlConfig);
     }
 
-    /**
+    */
+/**
      * 运行任务
      *
      * @param ctx The context to emit elements to and for accessing locks.
      * @throws Exception
-     */
+     *//*
+
     public void run(SourceContext<BaseTuple> ctx) throws Exception {
         info("run params:{}", JSON.toJSONString(ctx));
         service.execute(() -> {
@@ -220,12 +235,14 @@ public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> 
         }
     }
 
-    /**
+    */
+/**
      * 处理binlog事件
      *
      * @param ctx
      * @param item
-     */
+     *//*
+
     private void handleBinLogEvent(SourceContext<BaseTuple> ctx, BinLogItem item) {
         Map<String, Serializable> after = item.getAfter();
         BaseTuple tuple = BaseTuple.newInstance(outputColumnSize);
@@ -270,12 +287,14 @@ public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> 
         }
     }
 
-    /**
+    */
+/**
      * 扫描历史数据
      *
      * @param ctx
      * @throws InterruptedException
-     */
+     *//*
+
     private void scanHistoryData(SourceContext<BaseTuple> ctx) throws InterruptedException {
         while (scanTable) {
             Map<String, String> selectSentences = new HashMap<>(this.tables.size());
@@ -311,13 +330,15 @@ public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> 
         }
     }
 
-    /**
+    */
+/**
      * 构建sql，这里会做多个 union all 拼接
      *
      * @param tableName
      * @param selectSql
      * @return
-     */
+     *//*
+
     private String buildSql(String tableName, String selectSql) {
         log.info("buildSql tableName:{}", tableName);
         String queryStr;
@@ -380,13 +401,15 @@ public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> 
         return queryStr;
     }
 
-    /**
+    */
+/**
      * 执行sql语句
      *
      * @param ctx
      * @param queryStr
      * @param table
-     */
+     *//*
+
     private void executorSelect(SourceContext<BaseTuple> ctx, String queryStr, String table) {
         info("executorSelect params:{}", JSON.toJSONString(ctx), queryStr, table);
         this.service.execute(() -> {
@@ -492,11 +515,13 @@ public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> 
         }
     }
 
-    /**
+    */
+/**
      * 处理主键和时间列的序号
      *
      * @param outputColumns
-     */
+     *//*
+
     private void initFieldSub(String[] outputColumns) {
         info("initFieldSub params:{}", JSON.toJSONString(outputColumns));
         int i = 1;
@@ -511,11 +536,13 @@ public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> 
         }
     }
 
-    /**
+    */
+/**
      * 如果恢复时未读取到数据，这里重新做初始化
      *
      * @throws InterruptedException
-     */
+     *//*
+
     private void initTableStatus() throws InterruptedException {
         info(nodeName + "--start to init tables offset");
         boolean ready = false;
@@ -560,12 +587,14 @@ public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> 
     }
 
 
-    /**
+    */
+/**
      * 定期快照备份状态，待重新启动时可用来恢复
      *
      * @param context the context for drawing a snapshot of the operator
      * @throws Exception
-     */
+     *//*
+
     public void snapshotState(FunctionSnapshotContext context) throws Exception {
         if (this.canceled) {
             log.warn("snapshotState() called on closed source");
@@ -578,12 +607,14 @@ public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> 
         }
     }
 
-    /**
+    */
+/**
      * 启动时读取恢复状态
      *
      * @param context the context for initializing the operator
      * @throws Exception
-     */
+     *//*
+
     public void initializeState(FunctionInitializationContext context) throws Exception {
         info("initializeState");
         // 初始化表的读取位置 用于limit起始位置  --非增量采集 暂用不上
@@ -638,12 +669,14 @@ public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> 
     }
 
 
-    /**
+    */
+/**
      * 自定义打印日志
      *
      * @param format
      * @param arguments
-     */
+     *//*
+
     public void info(String format, Object... arguments) {
         try {
             log.info(format, arguments, SerializerFeature.IgnoreErrorGetter);
@@ -655,4 +688,4 @@ public class BinlogAndJdbcSourceComponent extends RichSourceFunction<BaseTuple> 
 
     public BinlogAndJdbcSourceComponent() {
     }
-}
+}*/

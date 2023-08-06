@@ -22,9 +22,6 @@ import static com.github.shyiko.mysql.binlog.event.EventType.*;
 @Component
 public class BinLogUtils {
 
-    private static BinLogUtils binLogUtils;
-
-
     /**
      * 拼接dbTable
      */
@@ -35,11 +32,11 @@ public class BinLogUtils {
     /**
      * 获取columns集合
      */
-    public static Map<String, Colum> getColMap(MysqlConf mysqlConf, String db, String table) throws ClassNotFoundException {
+    public static Map<String, Colum> getColMap(MysqlConfig mysqlConfig, String db, String table) throws ClassNotFoundException {
         try {
-            Class.forName(Constant.JDBC_DRIVER);
+            Class.forName("com.mysql.jdbc.Driver");
             // 保存当前注册的表的colum信息
-            Connection connection = DriverManager.getConnection("jdbc:mysql://" + mysqlConf.getHost() + ":" + mysqlConf.getPort() + "?serverTimezone=GMT%2B8&useSSL=false", mysqlConf.getUsername(), mysqlConf.getPasswd());
+            Connection connection = DriverManager.getConnection("jdbc:mysql://" + mysqlConfig.getHost() + ":" + mysqlConfig.getPort() + "?serverTimezone=GMT%2B8&useSSL=false", mysqlConfig.getUsername(), mysqlConfig.getPasswd());
             // 执行sql
             String preSql = "SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE, ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? and TABLE_NAME = ?";
             PreparedStatement ps = connection.prepareStatement(preSql);
@@ -58,10 +55,11 @@ public class BinLogUtils {
                     map.put(column, new Colum(schema, tableName, idx - 1, column, dataType));
                 }
             }
-            ps.close();
             rs.close();
+            ps.close();
+            connection.close();
             return map;
-        } catch (SQLException e) {
+        } catch (Exception e) {
             log.error("load db conf error, db_table={}:{} ", db, table, e);
         }
         return null;

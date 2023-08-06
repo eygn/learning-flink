@@ -16,23 +16,22 @@ import java.util.List;
 @NoArgsConstructor
 public class MysqlBinlogListener {
 
-    private BinlogEventConfig binlogEventConfig;
+    private MysqlConfig mysqlConfig;
 
     private BinLogEventListener binLogEventListener;
 
 
-    public MysqlBinlogListener(BinlogEventConfig binlogEventConfig) {
-        this.binlogEventConfig = binlogEventConfig;
-        log.info("初始化binlog配置信息：{}", binlogEventConfig.toString());
-        // 初始化配置信息
-        MysqlConf mysqlConf = new MysqlConf(binlogEventConfig.getHost(), binlogEventConfig.getPort(), binlogEventConfig.getUsername(), binlogEventConfig.getPasswd());
+    public MysqlBinlogListener(MysqlConfig mysqlConfig) {
+        this.mysqlConfig = mysqlConfig;
+        log.info("初始化binlog配置信息：{}", mysqlConfig.toString());
         // 初始化监听器
-        binLogEventListener = new BinLogEventListener(mysqlConf);
+        binLogEventListener = new BinLogEventListener(mysqlConfig);
+        BinlogConfigContext.mysqlConfig = mysqlConfig;
     }
 
     public void regListener(BinLogEventHandler listener) {
         // 获取table集合
-        List<String> tableList = BinLogUtils.getListByStr(binlogEventConfig.getTable());
+        List<String> tableList = BinLogUtils.getListByStr(mysqlConfig.getTable());
         if (CollectionUtil.isEmpty(tableList)) {
             log.info("binlog未匹配到任何需要监听的表");
             return;
@@ -40,9 +39,9 @@ public class MysqlBinlogListener {
         log.info("binlog开始监听表,tables:{}", tableList);
         // 注册监听
         tableList.forEach(table -> {
-            log.info("注册监听信息，注册DB：" + binlogEventConfig.getDb() + "，注册表：" + table);
+            log.info("注册监听信息，注册DB：" + mysqlConfig.getDb() + "，注册表：" + table);
             try {
-                binLogEventListener.regListener(binlogEventConfig.getDb(), table, listener);
+                binLogEventListener.regListener(mysqlConfig.getDb(), table, listener);
             } catch (Throwable e) {
                 log.error("BinLog监听异常", e);
             }
@@ -52,6 +51,7 @@ public class MysqlBinlogListener {
             binLogEventListener.consume();
         } catch (Throwable e) {
             log.error("mysqlBinLogListener.consume occur exception", e);
+            throw new RuntimeException(e);
         }
     }
 }

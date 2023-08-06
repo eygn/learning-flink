@@ -27,9 +27,9 @@ import static com.github.shyiko.mysql.binlog.event.EventType.*;
 public class BinLogEventListener implements BinaryLogClient.EventListener {
 
     @Option(name = "-binlog-consume_threads", usage = "the thread num of consumer")
-    private int consumerThreads = BinlogEventConfig.consumerThreads;
+    private int consumerThreads = BinlogConfigContext.consumerThreads;
 
-    private int queenSize = BinlogEventConfig.queueSize;
+    private int queenSize = BinlogConfigContext.queueSize;
 
     @Getter
     private BinaryLogClient client;
@@ -42,30 +42,29 @@ public class BinLogEventListener implements BinaryLogClient.EventListener {
      */
     private Multimap<String, BinLogEventHandler> eventHandlers;
 
-    private MysqlConf mysqlConf;
     private Map<String, Map<String, Colum>> dbTableCols;
     private String dbTable;
 
     /**
      * 监听器初始化
      *
-     * @param mysqlConf
+     * @param mysqlConfig
      */
-    public BinLogEventListener(MysqlConf mysqlConf) {
-        BinaryLogClient client = new BinaryLogClient(mysqlConf.getHost(), mysqlConf.getPort(), mysqlConf.getUsername(), mysqlConf.getPasswd());
+    public BinLogEventListener(MysqlConfig mysqlConfig) {
+        BinaryLogClient client = new BinaryLogClient(mysqlConfig.getHost(), mysqlConfig.getPort(), mysqlConfig.getUsername(), mysqlConfig.getPasswd());
         EventDeserializer eventDeserializer = new EventDeserializer();
         //eventDeserializer.setCompatibilityMode(//序列化
         //        EventDeserializer.CompatibilityMode.DATE_AND_TIME_AS_LONG,
         //        EventDeserializer.CompatibilityMode.CHAR_AND_BINARY_AS_BYTE_ARRAY
         //);
-        // client.setBinlogPosition();
+        client.setBinlogFilename(BinlogConfigContext.binlogFileName);
+        client.setBinlogPosition(BinlogConfigContext.binlogPosition);
         client.setEventDeserializer(eventDeserializer);
         // 每个slave的serverId必须唯一:时间戳+随机6位数
         long serverId = Long.valueOf(String.valueOf(System.currentTimeMillis()) + RandomUtil.randomNumbers(6));
         client.setServerId(serverId);
         this.client = client;
 
-        this.mysqlConf = mysqlConf;
         this.eventHandlers = ArrayListMultimap.create();
         this.dbTableCols = new ConcurrentHashMap<>();
         this.consumer = Executors.newFixedThreadPool(consumerThreads, new NamedThreadFactory("binlog-task-", false));
@@ -79,8 +78,10 @@ public class BinLogEventListener implements BinaryLogClient.EventListener {
      */
     @Override
     public void onEvent(Event event) {
+        if (queue.size() > queenSize * 0.8) {
+            DingTalkUtil.sendErrorMsg("当前Binlog消费队列堆积已超过最大容量的80%,实际为:" + queue.size() + ",任务表为:" + dbTable);
+        }
         EventType eventType = event.getHeader().getEventType();
-
         if (eventType == EventType.TABLE_MAP) {
             TableMapEventData tableData = event.getData();
             String db = tableData.getDatabase();
@@ -90,29 +91,32 @@ public class BinLogEventListener implements BinaryLogClient.EventListener {
 
         // 只处理添加删除更新三种操作
         try {
-            if (isWrite(eventType) || isUpdate(eventType) || isDelete(eventType)) {
-                if (isWrite(eventType)) {
-                    WriteRowsEventData data = event.getData();
-                    for (Serializable[] row : data.getRows()) {
-                        if (dbTableCols.containsKey(dbTable)) {
-                            BinLogItem item = BinLogItem.itemFromInsertOrDeleted(row, dbTableCols.get(dbTable), eventType);
-                            item.setDbTable(dbTable);
-                            queue.add(item);
+            if (isWrite(eventType)) {
+                WriteRowsEventData data = event.getData();
+                for (Serializable[] row : data.getRows()) {
+                    if (dbTableCols.containsKey(dbTable)) {
+                        BinLogItem item = BinLogItem.itemFromInsertOrDeleted(row, dbTableCols.get(dbTable), eventType);
+                        item.setDbTable(dbTable);
+                        if (itemParamsHandle(event, item) != null) {
+                            queue.put(item);
                         }
                     }
                 }
-                if (isUpdate(eventType)) {
-                    UpdateRowsEventData data = event.getData();
-                    for (Map.Entry<Serializable[], Serializable[]> row : data.getRows()) {
-                        if (dbTableCols.containsKey(dbTable)) {
-                            BinLogItem item = BinLogItem.itemFromUpdate(row, dbTableCols.get(dbTable), eventType);
-                            item.setDbTable(dbTable);
-                            queue.add(item);
+            }
+            if (isUpdate(eventType)) {
+                UpdateRowsEventData data = event.getData();
+                for (Map.Entry<Serializable[], Serializable[]> row : data.getRows()) {
+                    if (dbTableCols.containsKey(dbTable)) {
+                        BinLogItem item = BinLogItem.itemFromUpdate(row, dbTableCols.get(dbTable), eventType);
+                        item.setDbTable(dbTable);
+                        if (itemParamsHandle(event, item) != null) {
+                            queue.put(item);
                         }
                     }
                 }
-                // 数据物理删除忽略掉
-                /*if (isDelete(eventType)) {
+            }
+            // 数据物理删除忽略掉
+             /*   if (isDelete(eventType)) {
                     DeleteRowsEventData data = event.getData();
                     for (Serializable[] row : data.getRows()) {
                         if (dbTableCols.containsKey(dbTable)) {
@@ -122,11 +126,28 @@ public class BinLogEventListener implements BinaryLogClient.EventListener {
                         }
                     }
                 }*/
-            }
-        } catch (IllegalStateException e) {
-            DingTalkUtil.sendErrorMsg("binlog消费异常:队列已超过最大值" + queenSize + ",任务表：" + dbTable);
-            throw e;
+        } catch (Exception e) {
+            log.error("binlog event exception,eventType:{},eventData:{}", eventType, event.getData(), e);
+            DingTalkUtil.sendErrorMsg("binlog添加任务队列异常,任务表：" + dbTable + ",eventType:" + eventType + ",异常原因:" + e.getMessage());
         }
+    }
+
+    /**
+     * item参数处理
+     *
+     * @param event
+     * @param item
+     * @return
+     */
+    private BinLogItem itemParamsHandle(Event event, BinLogItem item) {
+        long timestamp = event.getHeader().getTimestamp();
+        if (timestamp < BinlogConfigContext.binlogTimestamp) {
+            return null;
+        }
+        item.setBinlogFilename(client.getBinlogFilename());
+        item.setBinlogPosition(((EventHeaderV4) event.getHeader()).getPosition());
+        item.setBinlogTimestamp(timestamp);
+        return item;
     }
 
     /**
@@ -140,7 +161,7 @@ public class BinLogEventListener implements BinaryLogClient.EventListener {
     public void regListener(String db, String table, BinLogEventHandler eventHandler) throws Exception {
         String dbTable = BinLogUtils.getdbTable(db, table);
         // 获取字段集合
-        Map<String, Colum> cols = BinLogUtils.getColMap(mysqlConf, db, table);
+        Map<String, Colum> cols = BinLogUtils.getColMap(BinlogConfigContext.mysqlConfig, db, table);
         // 保存字段信息
         dbTableCols.put(dbTable, cols);
         // 保存当前注册的listener
@@ -157,8 +178,6 @@ public class BinLogEventListener implements BinaryLogClient.EventListener {
 
         log.info("系统可用线程数：{}，当前配置消费binlog线程数:{}", Runtime.getRuntime().availableProcessors(), consumerThreads);
 
-        // 消费异常考虑 大批量更新
-
         for (int i = 0; i < consumerThreads; i++) {
             consumer.submit(() -> {
                 while (true) {
@@ -167,14 +186,11 @@ public class BinLogEventListener implements BinaryLogClient.EventListener {
                             BinLogItem item = queue.take();
                             eventHandlers.get(item.getDbTable()).forEach(binLogEventHandler -> binLogEventHandler.onEvent(item));
                         } catch (Throwable e) {
-                            log.error("binLogListener.onEvent InterruptedException", e);
-                            DingTalkUtil.sendErrorMsg("binLogListener.onEvent InterruptedException");
+                            log.error("binLogListener.consume Exception", e);
+                            DingTalkUtil.sendErrorMsg("binLogListener.consume Exception:" + e.getMessage());
                         }
                     }
-                    if (queue.size() > queenSize * 0.8) {
-                        DingTalkUtil.sendErrorMsg("当前Binlog消费队列堆积已超过最大容量的80%,实际为:" + queue.size() + ",任务表为:" + dbTable);
-                    }
-                    Thread.sleep(BinlogEventConfig.queueSleep);
+                    Thread.sleep(BinlogConfigContext.queueSleep);
                 }
             });
         }

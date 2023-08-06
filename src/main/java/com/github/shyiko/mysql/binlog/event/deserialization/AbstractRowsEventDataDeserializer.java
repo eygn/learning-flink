@@ -21,6 +21,8 @@ import com.github.shyiko.mysql.binlog.event.deserialization.ColumnType;
 import com.github.shyiko.mysql.binlog.event.deserialization.EventDataDeserializer;
 import com.github.shyiko.mysql.binlog.event.deserialization.MissingTableMapEventException;
 import com.github.shyiko.mysql.binlog.io.ByteArrayInputStream;
+import com.netby.flink.cdc.binlog.BinlogConfigContext;
+import sun.util.calendar.ZoneInfo;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -335,8 +337,12 @@ public abstract class AbstractRowsEventDataDeserializer<T extends EventData> imp
         if (deserializeDateAndTimeAsLong) {
             return castTimestamp(timestamp, fsp);
         }
-        return new java.sql.Timestamp(convertLocalTimestamp(millis * 1000));
-//        return convertLocalTimestamp(millis);
+        // https://github.com/shyiko/mysql-binlog-connector-java/pull/292/commits/5b29c33e0c8643ff3a7b6d315689ccead28b3782
+        // 修改utc时间+8转时间戳导致时间错误问题，采用标准时间utc+0输出,和数据库原始数据一致
+        if (BinlogConfigContext.timeZoneLocal) {
+            return new java.sql.Timestamp(convertLocalTimestamp(timestamp));
+        }
+        return new java.sql.Timestamp(timestamp);
     }
 
     protected Serializable deserializeDatetime(ByteArrayInputStream inputStream) throws IOException {

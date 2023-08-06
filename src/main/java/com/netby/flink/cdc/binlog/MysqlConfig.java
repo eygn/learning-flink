@@ -1,17 +1,29 @@
 package com.netby.flink.cdc.binlog;
 
-import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 
 /**
- * 数据库配置
- **/
+ * 监听配置信息
+ *
+ * @author baiyg
+ */
 @Data
-@AllArgsConstructor
-public class MysqlConf {
+@Builder
+public class MysqlConfig {
+
     private String host;
+
     private int port;
+
     private String username;
+
     private String passwd;
+
+    private String db;
+
+    private String table;
+
 }
+
 

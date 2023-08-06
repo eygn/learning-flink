@@ -3,7 +3,6 @@ package com.netby.flink.cdc;
 import com.alibaba.fastjson.JSON;
 import com.dtflys.forest.Forest;
 import com.netby.flink.cdc.config.MyNacosClient;
-import com.netby.flink.cdc.jdbc.BinlogAndJdbcSourceComponent;
 import com.netby.flink.cdc.jdbc.JSONParserUtils;
 import com.netby.flink.cdc.third.BaseTuple;
 import com.netby.flink.cdc.third.DagNode;
@@ -47,7 +46,7 @@ public class BinlogTest {
         DagNode node = new DagNode();
         node.setNodeId("1");
         node.setProperties(properties);
-        BinlogAndJdbcSourceComponent binlogAndJdbcSourceComponent = new BinlogAndJdbcSourceComponent(node);
+        BinlogCdcSourceComponent sourceComponent = new BinlogCdcSourceComponent(node);
         OperatorMetricGroup metrics = null;
         Map<String, Accumulator<?, ?>> accumulators = new HashMap<String, Accumulator<?, ?>>();
         Map<String, Future<Path>> cachedFiles = new HashMap<String, Future<Path>>();
@@ -55,8 +54,8 @@ public class BinlogTest {
         ClassLoader userCodeClassLoader = Thread.currentThread().getContextClassLoader();
         TaskInfo taskInfo = new TaskInfo("my-task", 1, 0, 1, 0);
         RuntimeContext runtimeContext = new RuntimeUDFContext(taskInfo, userCodeClassLoader, executionConfig, cachedFiles, accumulators, metrics);
-        binlogAndJdbcSourceComponent.setRuntimeContext(runtimeContext);
-        binlogAndJdbcSourceComponent.open(null);
+        sourceComponent.setRuntimeContext(runtimeContext);
+        sourceComponent.open(null);
         SourceFunction.SourceContext<BaseTuple> ctx = new SourceFunction.SourceContext<BaseTuple>() {
             @Override
             public void collect(BaseTuple element) {
@@ -91,6 +90,6 @@ public class BinlogTest {
                 System.err.println("close");
             }
         };
-        binlogAndJdbcSourceComponent.run(ctx);
+        sourceComponent.run(ctx);
     }
 }

@@ -19,7 +19,6 @@ public class BinLogItem implements Serializable {
 
     private String dbTable;
     private EventType eventType;
-    private Long timestamp = null;
     private Long serverId = null;
     /**
      * 存储字段-之前的值之后的值
@@ -30,6 +29,20 @@ public class BinLogItem implements Serializable {
      * 存储字段--类型
      */
     private Map<String, Colum> colums = null;
+
+    /**
+     * binlog文件名称
+     */
+    private String binlogFilename;
+    /**
+     * binlog消费位点
+     */
+    private Long binlogPosition;
+
+    /**
+     * 消费时间戳
+     */
+    private Long binlogTimestamp;
 
     /**
      * 新增或者删除操作数据格式化

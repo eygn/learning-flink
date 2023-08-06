@@ -10,8 +10,8 @@ public class Constant {
   static final String DEFAULT_PAGE_SIZE = "100";
   
   static final String DEFAULT_COLUMN_SPLIT = ",";
-  
-  static final String MYSQL = "mysql";
+
+  public static final String MYSQL = "mysql";
   
   static final String OUTPUT_FIELDS = "outputFields";
   
