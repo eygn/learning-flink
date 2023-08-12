@@ -115,8 +115,6 @@ public class BinlogCdcSourceComponent extends RichSourceFunction<BaseTuple> impl
 //            log.info("调整时区，原时区：{}，新时区：{}", TimeZone.getDefault(), TimeZone.getTimeZone("UTC"));
 //            TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
 //        }
-        // 时间戳暂不对外放开(如果要重新推送流立方，则使用原有数据采集组件)
-        BinlogConfigContext.binlogTimestamp = Long.valueOf(properties.getProperty(BINLOG_TIMESTAMP, "0"));
         outputColumns = Arrays.asList(properties.getProperty("outputColumns").split(","));
         canceled = false;
 
@@ -143,11 +141,15 @@ public class BinlogCdcSourceComponent extends RichSourceFunction<BaseTuple> impl
                 .build();
         log.info("cacheConfig:{}", JSON.toJSONString(this.tableInfoMaps));
         Map<String, String> cacheConfig = this.tableInfoMaps.get(BinLogUtils.getdbTable(schema, tableName));
+        // 优先从缓存中读取
         if (cacheConfig != null && cacheConfig.size() > 0) {
-            String binlogFileName = cacheConfig.get(BINLOG_FILE_NAME);
-            long binlogPosition = Long.valueOf(Objects.toString(cacheConfig.get(BINLOG_POSITION), "0"));
-            BinlogConfigContext.binlogFileName = binlogFileName;
-            BinlogConfigContext.binlogPosition = binlogPosition;
+            BinlogConfigContext.binlogFileName = cacheConfig.getOrDefault(BINLOG_FILE_NAME, null);
+            BinlogConfigContext.binlogPosition = longValueOf(cacheConfig.get(BINLOG_POSITION), 0L);
+            BinlogConfigContext.binlogTimestamp = longValueOf(cacheConfig.get(BINLOG_TIMESTAMP), null);
+        } else {
+            BinlogConfigContext.binlogFileName = properties.getProperty(BINLOG_FILE_NAME, null);
+            BinlogConfigContext.binlogPosition = longValueOf(properties.getProperty(BINLOG_POSITION), 0L);
+            BinlogConfigContext.binlogTimestamp = longValueOf(properties.getProperty(BINLOG_TIMESTAMP), null);
         }
         mysqlBinlogListener = new MysqlBinlogListener(mysqlConfig);
     }
@@ -184,6 +186,7 @@ public class BinlogCdcSourceComponent extends RichSourceFunction<BaseTuple> impl
      * @param item
      */
     private void handleBinLogEvent(SourceContext<BaseTuple> ctx, BinLogItem item) {
+        long start = System.currentTimeMillis();
         Map<String, Serializable> after = item.getAfter();
         BaseTuple tuple = BaseTuple.newInstance(outputColumns.size());
         // 填充tuple
@@ -217,13 +220,14 @@ public class BinlogCdcSourceComponent extends RichSourceFunction<BaseTuple> impl
         tableInfoMap.put(BINLOG_POSITION, Objects.toString(item.getBinlogPosition(), null));
         tableInfoMap.put(BINLOG_TIMESTAMP, Objects.toString(item.getBinlogTimestamp(), "0"));
 
-        log.info("binlog collect:{}", JSON.toJSONString(tuple));
         ctx.collect(tuple);
 
         // 记录状态
         if (tableInfoMap.size() > 0) {
             tableInfoMaps.put(item.getDbTable(), tableInfoMap);
         }
+        log.info("binlog collect finish:{},cost:{}", JSON.toJSONString(tuple), System.currentTimeMillis() - start);
+
     }
 
     /**
@@ -338,6 +342,13 @@ public class BinlogCdcSourceComponent extends RichSourceFunction<BaseTuple> impl
         } catch (Throwable e) {
             log.error("日志打印异常", e);
         }
+    }
+
+    private Long longValueOf(String value, Long defaultValue) {
+        if (StringUtils.isNotBlank(value)) {
+            return Long.valueOf(value);
+        }
+        return defaultValue;
     }
 
 }

@@ -1,20 +1,20 @@
 package com.netby.flink.cdc.binlog;
 
-import com.github.shyiko.mysql.binlog.event.EventType;
+import com.github.shyiko.mysql.binlog.event.*;
 import com.google.common.collect.Maps;
 import lombok.Data;
 
 import java.io.Serializable;
 import java.util.Map;
 
-import static com.github.shyiko.mysql.binlog.event.EventType.isDelete;
-import static com.github.shyiko.mysql.binlog.event.EventType.isWrite;
+import static com.github.shyiko.mysql.binlog.event.EventType.*;
 
 /**
  * binlog对象
  **/
 @Data
 public class BinLogItem implements Serializable {
+
     private static final long serialVersionUID = 5503152746318421290L;
 
     private String dbTable;
@@ -43,6 +43,20 @@ public class BinLogItem implements Serializable {
      * 消费时间戳
      */
     private Long binlogTimestamp;
+
+    public static Long getTableId(Event event, EventType eventType) {
+        if (isWrite(eventType)) {
+            WriteRowsEventData data = event.getData();
+            return data.getTableId();
+        } else if (isUpdate(eventType)) {
+            UpdateRowsEventData data = event.getData();
+            return data.getTableId();
+        } else if (isDelete(eventType)) {
+            DeleteRowsEventData data = event.getData();
+            return data.getTableId();
+        }
+        return null;
+    }
 
     /**
      * 新增或者删除操作数据格式化
