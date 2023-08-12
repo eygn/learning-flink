@@ -24,9 +24,9 @@ public class BinlogConfigContext {
     public static Long binlogTimestamp;
 
     /**
-     * 本地化时区
+     * 零时区转换
      */
-    public static Boolean timeZoneLocal = false;
+    public static Boolean timeZoneZero = false;
 
     /**
      * 消费线程数(因为需要实时准确记录binlog消费位点，所以只能单线程消费)

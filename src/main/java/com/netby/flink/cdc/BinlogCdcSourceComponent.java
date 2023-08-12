@@ -45,7 +45,7 @@ public class BinlogCdcSourceComponent extends RichSourceFunction<BaseTuple> impl
 
     private static final long serialVersionUID = -9057026857986845521L;
 
-    private static final String BINLOG_TIMEZONE_LOCAL = "timezoneLocal";
+    private static final String BINLOG_TIMEZONE_ZERO = "timezoneZero";
     private static final String BINLOG_FILE_NAME = "binlogFileName";
     private static final String BINLOG_POSITION = "binlogPosition";
     private static final String BINLOG_TIMESTAMP = "binlogTimestamp";
@@ -110,7 +110,7 @@ public class BinlogCdcSourceComponent extends RichSourceFunction<BaseTuple> impl
         }
         updateTimeField = properties.getProperty("updateTimeColumn");
 
-        BinlogConfigContext.timeZoneLocal = Boolean.valueOf(properties.getProperty(BINLOG_TIMEZONE_LOCAL, "false"));
+        BinlogConfigContext.timeZoneZero = Boolean.valueOf(properties.getProperty(BINLOG_TIMEZONE_ZERO, "false"));
 //        if (BinlogConfigContext.timeZoneLocal) {
 //            log.info("调整时区，原时区：{}，新时区：{}", TimeZone.getDefault(), TimeZone.getTimeZone("UTC"));
 //            TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
