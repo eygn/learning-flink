@@ -17,6 +17,7 @@ import org.apache.flink.metrics.groups.OperatorMetricGroup;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.watermark.Watermark;
 
+import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -59,8 +60,7 @@ public class BinlogTest {
         SourceFunction.SourceContext<BaseTuple> ctx = new SourceFunction.SourceContext<BaseTuple>() {
             @Override
             public void collect(BaseTuple element) {
-                System.err.println("collect");
-                System.err.println(JSON.toJSONString(element));
+                System.err.println("collect eventTime:" + new Timestamp(Long.valueOf(element.getField(7)))+",id:" + element.getField(8));
             }
 
             @Override

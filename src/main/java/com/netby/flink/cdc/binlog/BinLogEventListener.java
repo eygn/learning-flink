@@ -2,6 +2,7 @@ package com.netby.flink.cdc.binlog;
 
 import cn.hutool.core.thread.NamedThreadFactory;
 import cn.hutool.core.util.RandomUtil;
+import cn.hutool.core.util.ReflectUtil;
 import com.github.shyiko.mysql.binlog.BinaryLogClient;
 import com.github.shyiko.mysql.binlog.event.*;
 import com.github.shyiko.mysql.binlog.event.deserialization.EventDeserializer;
@@ -9,12 +10,14 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.kohsuke.args4j.Option;
 
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.*;
 
 import static com.github.shyiko.mysql.binlog.event.EventType.*;
@@ -63,12 +66,28 @@ public class BinLogEventListener implements BinaryLogClient.EventListener {
         //        EventDeserializer.CompatibilityMode.DATE_AND_TIME_AS_LONG,
         //        EventDeserializer.CompatibilityMode.CHAR_AND_BINARY_AS_BYTE_ARRAY
         //);
+        BinlogConfigContext.gtid = "47b1a359-947e-11e9-a8a8-0242ac110005:1-5";
+//        BinlogConfigContext.binlogFileName = "binlog.000007";
+//        BinlogConfigContext.binlogPosition = 445;
+
         client.setBinlogFilename(BinlogConfigContext.binlogFileName);
         client.setBinlogPosition(BinlogConfigContext.binlogPosition);
         client.setEventDeserializer(eventDeserializer);
+
+        // 经测试，gitd底层也是依赖Binlog，如果master服务器中Binlog文件被清理，启动依然失败，因此不建议启用，而且低版本mysql支持不好(如5.7版本，最好是8版本)
+        if (BinlogConfigContext.gtid != null) {
+            log.info("开启gtid模式");
+            client.setGtidSet(BinlogConfigContext.gtid);
+            // 如果gtid为空，需要设置gtidSetFallbackToPurged=true
+            client.setGtidSetFallbackToPurged(true);
+            if (StringUtils.isNotBlank(BinlogConfigContext.binlogFileName)) {
+                client.setUseBinlogFilenamePositionInGtidMode(true);
+            }
+        }
+
         // 每个slave的serverId必须唯一:时间戳+随机6位数
         long serverId = Long.valueOf(String.valueOf(System.currentTimeMillis()) + RandomUtil.randomNumbers(6));
-        client.setServerId(serverId);
+        client.setServerId(100);
         client.registerLifecycleListener(new BinLogLifecycleListener());
 
         this.client = client;
@@ -162,6 +181,8 @@ public class BinLogEventListener implements BinaryLogClient.EventListener {
         item.setBinlogFilename(client.getBinlogFilename());
         item.setBinlogPosition(((EventHeaderV4) event.getHeader()).getPosition());
         item.setBinlogTimestamp(timestamp);
+        item.setGtid(Objects.toString(ReflectUtil.getFieldValue(client, "gtid"), null));
+
 
         if (queue.size() > queenSize * 0.8) {
             isQueueFull = true;

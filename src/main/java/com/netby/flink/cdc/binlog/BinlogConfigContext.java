@@ -24,6 +24,12 @@ public class BinlogConfigContext {
     public static Long binlogTimestamp;
 
     /**
+     * mysql gtid复制模式，不依赖binlogFileName和position
+     * 值如:4c93b24e-e918-11ea-b696-506b4bff3704:1118119350
+     */
+    public static String gtid = null;
+
+    /**
      * 零时区转换
      */
     public static Boolean timeZoneZero = false;

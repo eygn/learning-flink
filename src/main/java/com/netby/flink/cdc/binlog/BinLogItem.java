@@ -44,6 +44,11 @@ public class BinLogItem implements Serializable {
      */
     private Long binlogTimestamp;
 
+    /**
+     * gtid
+     */
+    private String gtid;
+
     public static Long getTableId(Event event, EventType eventType) {
         if (isWrite(eventType)) {
             WriteRowsEventData data = event.getData();

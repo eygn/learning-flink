@@ -49,6 +49,7 @@ public class BinlogCdcSourceComponent extends RichSourceFunction<BaseTuple> impl
     private static final String BINLOG_FILE_NAME = "binlogFileName";
     private static final String BINLOG_POSITION = "binlogPosition";
     private static final String BINLOG_TIMESTAMP = "binlogTimestamp";
+    private static final String GTID = "gtid";
 
     private DagNode dagNode;
     private String nodeId;
@@ -146,10 +147,12 @@ public class BinlogCdcSourceComponent extends RichSourceFunction<BaseTuple> impl
             BinlogConfigContext.binlogFileName = cacheConfig.getOrDefault(BINLOG_FILE_NAME, null);
             BinlogConfigContext.binlogPosition = longValueOf(cacheConfig.get(BINLOG_POSITION), 0L);
             BinlogConfigContext.binlogTimestamp = longValueOf(cacheConfig.get(BINLOG_TIMESTAMP), null);
+            BinlogConfigContext.gtid = cacheConfig.getOrDefault(GTID, null);
         } else {
             BinlogConfigContext.binlogFileName = properties.getProperty(BINLOG_FILE_NAME, null);
             BinlogConfigContext.binlogPosition = longValueOf(properties.getProperty(BINLOG_POSITION), 0L);
             BinlogConfigContext.binlogTimestamp = longValueOf(properties.getProperty(BINLOG_TIMESTAMP), null);
+            BinlogConfigContext.gtid = properties.getProperty(GTID, null);
         }
         mysqlBinlogListener = new MysqlBinlogListener(mysqlConfig);
     }
@@ -165,7 +168,7 @@ public class BinlogCdcSourceComponent extends RichSourceFunction<BaseTuple> impl
         service.submit(() -> {
             try {
                 mysqlBinlogListener.regListener(item -> {
-                    log.info("接收到binlog事件：{},binlogFileName:{},binlogPosition:{}", item.getAfter(), item.getBinlogFilename(), item.getBinlogPosition());
+                    log.info("接收到binlog事件：binlogFileName:{},binlogPosition:{},gtid:{},data:{}", item.getBinlogFilename(), item.getBinlogPosition(), item.getGtid(), item.getAfter());
                     handleBinLogEvent(ctx, item);
                 });
             } catch (Throwable e) {
